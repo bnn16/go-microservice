@@ -2,17 +2,21 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"net"
 
-	"google.golang.org/grpc"
-
 	pb "grpc/ms/pb"
+
+	"github.com/streadway/amqp"
+	"google.golang.org/grpc"
 )
 
 const (
-	port    = ":50052"               // port for the intermediate microservice
-	address = "localhost:50051"      // address of the existing gRPC server
+	port       = ":50052"                // port for the intermediate microservice
+	address    = "localhost:50051"       // address of the existing gRPC server
+	rabbitURL  = "amqp://guest:guest@localhost:5672/"
+	queueName  = "items_queue"
 )
 
 type intermediateService struct {
@@ -52,6 +56,81 @@ func main() {
 	pb.RegisterMyServiceServer(intermediateServer, &intermediateService{client: client})
 
 	log.Printf("Intermediate Server listening on port %s", port)
+
+	// start RabbitMQ consumer
+	go func() {
+		connRabbit, err := amqp.Dial(rabbitURL)
+		if err != nil {
+			log.Fatalf("failed to connect to RabbitMQ: %v", err)
+		}
+		defer connRabbit.Close()
+
+		ch, err := connRabbit.Channel()
+		if err != nil {
+			log.Fatalf("failed to open a channel: %v", err)
+		}
+		defer ch.Close()
+
+		q, err := ch.QueueDeclare(
+			queueName, // name
+			false,     // durable
+			false,     // delete when unused
+			false,     // exclusive
+			false,     // no-wait
+			nil,       // arguments
+		)
+		if err != nil {
+			log.Fatalf("failed to declare a queue: %v", err)
+		}
+
+		msgs, err := ch.Consume(
+			q.Name, // queue
+			"",     // consumer
+			true,   // auto-ack
+			false,  // exclusive
+			false,  // no-local
+			false,  // no-wait
+			nil,    // args
+		)
+		if err != nil {
+			log.Fatalf("failed to register a consumer: %v", err)
+		}
+
+		for msg := range msgs {
+			// using it this way because the message is a JSON object
+			var receivedItem map[string]interface{}
+			err := json.Unmarshal(msg.Body, &receivedItem)
+			if err != nil {
+				log.Printf("Error decoding message: %v", err)
+				continue
+			}
+
+			itemReq := &pb.ItemRequest{
+				Name:"",
+			}
+
+			if name, ok := receivedItem["Name"].(string); ok {
+				itemReq.Name = name
+			} else {
+				log.Println("Error: Missing or invalid 'Name' field in received item")
+				continue
+			}
+
+			// check if the Name field is present and is a string
+			if(itemReq.Name == ""){
+				log.Println("Error: Missing or invalid 'Name' field in received item")
+				continue
+			}
+		
+			// forward the AddItem request to the existing gRPC server
+			_, err = client.AddItem(context.Background(), itemReq)
+			if err != nil {
+				log.Printf("Error calling AddItem: %v", err)
+				continue
+			}
+		}
+	}()
+
 	if err := intermediateServer.Serve(listener); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
