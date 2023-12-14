@@ -45,13 +45,6 @@ message ItemResponse {
     string name = 2;
 }
 ```
-    
-## Roadmap
-
-- Additional browser support
-
-- Add more integrations
-
 
 ## Microservice2 2 (DB Helper)
 
