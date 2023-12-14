@@ -45,7 +45,7 @@ message ItemResponse {
     string name = 2;
 }
 ```
-
+    
 ## Microservice2 2 (DB Helper)
 
 I first had to implement the AddItem function that we previously defined in the protofile
@@ -182,6 +182,30 @@ return c.JSON(http.StatusOK, response)
 ```
 
 
+## Post Request
+
+We send a post request to /add-item
+
+```json
+{
+     "Name": "test"
+}
+```
+
+and we get a server response of 
+```json
+{
+    "corrId": "HNLYNSEUBGETFISBMYWTWPSLEWODMRPQ",
+    "message": "Item added and sent to RabbitMQ"
+}
+```
+
+We can see that the data is successfully send over the rabbitmq queue then onto the gRPC services
+
+[![Screenshot-2023-12-14-at-15-06-39.png](https://i.postimg.cc/TPtRxwQk/Screenshot-2023-12-14-at-15-06-39.png)](https://postimg.cc/HJ7G4Tq5)
+
+
+[![Screenshot-2023-12-14-at-15-05-34.png](https://i.postimg.cc/8kKr4kSm/Screenshot-2023-12-14-at-15-05-34.png)](https://postimg.cc/Cd81LgdR)
 ## Tech Stack
 
 **RestAPI:** Echo
