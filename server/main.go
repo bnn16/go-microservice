@@ -14,9 +14,8 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-
 const (
-	port= ":50051"
+	port       = ":50051"
 	dbFileName = "items.db"
 )
 
@@ -25,7 +24,7 @@ type server struct {
 	db *sql.DB
 }
 
-//function to add items to the database (CREATE)
+// function to add items to the database (CREATE)
 func (s *server) AddItem(ctx context.Context, req *pb.ItemRequest) (*pb.ItemResponse, error) {
 
 	//insert the item into the database

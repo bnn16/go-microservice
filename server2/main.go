@@ -13,10 +13,11 @@ import (
 )
 
 const (
-	port       = ":50052"                // port for the intermediate microservice
-	address    = "localhost:50051"       // address of the existing gRPC server
-	rabbitURL  = "amqp://guest:guest@localhost:5672/"
-	queueName  = "items_queue"
+	port              = ":50052"          // port for the intermediate microservice
+	address           = "localhost:50051" // address of the existing gRPC server
+	rabbitURL         = "amqp://guest:guest@localhost:5672/"
+	queueName         = "items_queue"
+	responseQueueName = "items_response_queue"
 )
 
 type intermediateService struct {
@@ -83,6 +84,20 @@ func main() {
 			log.Fatalf("failed to declare a queue: %v", err)
 		}
 
+		// //Response queue
+		// chResponse, err := connRabbit.Channel()
+		// if err != nil {
+		// 	log.Fatalf("failed to open a channel: %v", err)
+		// }
+		// defer chResponse.Close()
+
+		// responseQueue, err := chResponse.QueueDeclare(responseQueueName, false, false, false, false, nil)
+		// if err != nil {
+		// 	log.Fatalf("failed to declare a RabbitMQ queue: %v", err)
+		// }
+		// log.Printf("RabbitMQ queue declared: %v", responseQueue)
+		// defer chResponse.Close()
+
 		msgs, err := ch.Consume(
 			q.Name, // queue
 			"",     // consumer
@@ -106,8 +121,9 @@ func main() {
 			}
 
 			itemReq := &pb.ItemRequest{
-				Name:"",
+				Name: "",
 			}
+			//corID := msg.CorrelationId
 
 			if name, ok := receivedItem["Name"].(string); ok {
 				itemReq.Name = name
@@ -117,16 +133,35 @@ func main() {
 			}
 
 			// check if the Name field is present and is a string
-			if(itemReq.Name == ""){
+			if itemReq.Name == "" {
 				log.Println("Error: Missing or invalid 'Name' field in received item")
 				continue
 			}
-		
+
 			// forward the AddItem request to the existing gRPC server
 			_, err = client.AddItem(context.Background(), itemReq)
 			if err != nil {
 				log.Printf("Error calling AddItem: %v", err)
 				continue
+			} else {
+
+				return
+				// //This is how it should be for the response queue
+				// log.Printf("Item added via intermediate service. Name: %s", itemReq.Name)
+
+				// // Send response to response queue
+				// responseBody, _ := json.Marshal("Test Success")
+				// err = chResponse.Publish("", responseQueueName, false, false, amqp.Publishing{
+				// 	ContentType:   "application/json",
+				// 	Body:          responseBody,
+				// 	CorrelationId: corID,
+				// })
+				// if err != nil {
+				// 	log.Printf("Error publishing message to RabbitMQ: %v", err)
+				// 	continue
+				// } else {
+				// 	break
+				// }
 			}
 		}
 	}()

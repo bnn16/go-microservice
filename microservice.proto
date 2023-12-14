@@ -13,3 +13,7 @@ message ItemResponse {
     int64 id = 1;
     string name = 2;
 }
+
+
+//in here you just add another rpc method, that will be called from the client
+//in the server you will have to implement this method and mutate the data 
